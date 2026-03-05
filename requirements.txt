@@ -1,0 +1,8 @@
+pandas==2.2.1
+numpy==1.26.4
+matplotlib==3.8.3
+python-binance==1.0.19
+httpx==0.27.0
+pydantic==2.6.3
+pyyaml==6.0.1
+rich==13.7.0

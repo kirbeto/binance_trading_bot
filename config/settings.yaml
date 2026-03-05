@@ -1,0 +1,21 @@
+general:
+  pair: BTCUSDT
+  timeframes:
+    - 15m
+    - 1h
+  data_dir: data
+
+risk:
+  initial_capital: 80
+  risk_per_trade_pct: 0.02
+  max_consecutive_losses: 3
+  max_positions: 1
+
+signals:
+  ema_fast: 50
+  ema_slow: 200
+  rsi_period: 14
+  rsi_min: 40
+  rsi_max: 60
+  take_profit_pct: 0.015  # 1.5%
+  stop_loss_pct: 0.0075   # 0.75%

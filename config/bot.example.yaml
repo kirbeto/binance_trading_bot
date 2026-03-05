@@ -1,0 +1,29 @@
+app:
+  mode: paper               # paper | live (live not implemented yet)
+  poll_interval_sec: 120    # wait time between loops when running with --loop
+  symbol: BTCUSDT
+  interval: 5m
+
+strategy:
+  ema_fast: 50
+  ema_slow: 200
+  rsi_period: 14
+  rsi_entry_min: 40
+  rsi_entry_max: 60
+  rsi_exit: 65
+  volume_sma_period: 20
+  volume_multiplier: 1.0
+
+risk:
+  starting_capital: 70
+  position_pct_min: 0.07    # 7% of capital
+  position_pct_max: 0.12    # 12% of capital
+  stop_loss_pct: 0.015      # 1.5% stop (guardrail-compliant)
+  take_profit_rr: 1.5       # TP distance = stop * RR
+  daily_loss_cap_pct: 0.03  # pause trading for the day after -3%
+  max_open_positions: 1
+
+logging:
+  trade_log: data/paper_trades.csv
+  blotter_log: data/paper_blotter.csv
+  state_file: data/state/paper_state.json
