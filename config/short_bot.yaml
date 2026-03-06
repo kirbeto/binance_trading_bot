@@ -1,0 +1,52 @@
+app:
+  name: short_bot
+  mode: live
+  poll_interval_sec: 300
+  symbol: BTCUSDT
+  interval: 5m
+
+execution:
+  market: futures
+  margin_mode: isolated
+  leverage: 3
+  trade_side: short
+
+strategy:
+  type: trend_short
+  ema_fast: 50
+  ema_slow: 200
+  rsi_period: 14
+  rsi_entry_min: 25
+  rsi_entry_max: 45
+  rsi_exit_short: 55
+  volume_sma_period: 20
+  volume_multiplier: 0.5
+  volume_filter_enabled: true
+  volatility_max_pct: 0.02
+  volatility_lookback: 5
+  history_bars: 600
+
+risk:
+  starting_capital: 2000
+  position_pct_min: 0.25
+  position_pct_max: 0.30
+  stop_loss_pct: 0.008
+  take_profit_pct: 0.012
+  take_profit_rr: 1.5
+  daily_loss_cap_pct: 0.025
+  max_open_positions: 1
+
+logging:
+  trade_log: logs/short/trades.csv
+  blotter_log: logs/short/blotter.csv
+  state_file: data/state/short_state.json
+  signal_log: logs/short/signals.csv
+  live_trade_log: logs/short/live/trades.csv
+  live_execution_log: logs/short/live/orders.jsonl
+  live_signal_log: logs/short/live/signals.csv
+  live_state_file: data/state/short_live_state.json
+
+live:
+  min_balance: 20
+  min_notional: 10
+  fee_bps: 12

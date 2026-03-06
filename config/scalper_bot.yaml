@@ -1,0 +1,48 @@
+app:
+  name: scalper_bot
+  mode: live
+  poll_interval_sec: 30
+  symbol: BTCUSDT
+  interval: 5m
+
+execution:
+  market: futures
+  margin_mode: isolated
+  leverage: 2
+  trade_side: both
+
+strategy:
+  type: scalper
+  ema_fast: 9
+  ema_slow: 21
+  rsi_period: 14
+  rsi_entry_min: 40
+  rsi_entry_max: 60
+  rsi_exit_upper: 65
+  rsi_exit_lower: 35
+  history_bars: 300
+
+risk:
+  starting_capital: 2000
+  position_pct_min: 0.25
+  position_pct_max: 0.3
+  stop_loss_pct: 0.006
+  take_profit_pct: 0.005
+  take_profit_rr: 1.2
+  daily_loss_cap_pct: 0.02
+  max_open_positions: 1
+
+logging:
+  trade_log: logs/scalper/trades.csv
+  blotter_log: logs/scalper/blotter.csv
+  state_file: data/state/scalper_state.json
+  signal_log: logs/scalper/signals.csv
+  live_trade_log: logs/scalper/live/trades.csv
+  live_execution_log: logs/scalper/live/orders.jsonl
+  live_signal_log: logs/scalper/live/signals.csv
+  live_state_file: data/state/scalper_live_state.json
+
+live:
+  min_balance: 20
+  min_notional: 10
+  fee_bps: 10

@@ -1,0 +1,50 @@
+app:
+  name: trend_bot
+  mode: live
+  poll_interval_sec: 300
+  symbol: BTCUSDT
+  interval: 15m
+
+execution:
+  market: spot
+  margin_mode: cross
+  leverage: 1
+  trade_side: long
+
+strategy:
+  type: trend_long
+  ema_fast: 50
+  ema_slow: 200
+  rsi_period: 14
+  rsi_entry_min: 50
+  rsi_entry_max: 70
+  rsi_exit: 48
+  volume_sma_period: 20
+  volume_multiplier: 0.5
+  volume_filter_enabled: false
+  history_bars: 400
+
+risk:
+  starting_capital: 2000
+  position_pct_min: 0.25
+  position_pct_max: 0.3
+  stop_loss_pct: 0.01
+  take_profit_pct: 0.015
+  take_profit_rr: 1.5
+  daily_loss_cap_pct: 0.03
+  max_open_positions: 1
+
+logging:
+  trade_log: logs/trend/trades.csv
+  blotter_log: logs/trend/blotter.csv
+  state_file: data/state/trend_state.json
+  signal_log: logs/trend/signals.csv
+  live_trade_log: logs/trend/live/trades.csv
+  live_execution_log: logs/trend/live/orders.jsonl
+  live_signal_log: logs/trend/live/signals.csv
+  live_state_file: data/state/trend_live_state.json
+
+live:
+  min_balance: 20
+  min_notional: 10
+  fee_bps: 10
