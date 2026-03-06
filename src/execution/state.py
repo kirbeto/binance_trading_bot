@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 
 @dataclass
@@ -15,6 +15,11 @@ class Position:
     stop_loss: float
     take_profit: float
     opened_at: str
+    side: Literal["LONG", "SHORT"] = "LONG"
+    leverage: float = 1.0
+    margin_mode: str = "cash"
+    margin_used: float = 0.0
+    notional: float = 0.0
     fees_paid: float = 0.0
 
     def to_dict(self) -> dict:
@@ -29,6 +34,11 @@ class Position:
             stop_loss=data["stop_loss"],
             take_profit=data["take_profit"],
             opened_at=data.get("opened_at") or datetime.now(timezone.utc).isoformat(),
+            side=data.get("side", "LONG"),
+            leverage=data.get("leverage", 1.0),
+            margin_mode=data.get("margin_mode", "cash"),
+            margin_used=data.get("margin_used", data.get("cost", 0.0)),
+            notional=data.get("notional", data.get("cost", 0.0)),
             fees_paid=data.get("fees_paid", 0.0),
         )
 

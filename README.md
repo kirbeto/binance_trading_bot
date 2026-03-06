@@ -1,60 +1,71 @@
-# Stable Autonomous Crypto Trading Bot (Binance Spot)
+# Multi-Bot Binance Trading Framework
 
-Conservative BTC/USDT spot bot focused on capital preservation, clean execution, and transparent logging. Built for 1-hour candles, paper-trading first, with modular pieces ready for future live deployment.
+Modular BTCUSDT trading stack designed to run several strategy profiles in parallel (trend-following long, trend-following short, and fast scalper). Each bot uses its own config, state, and logs so they can safely share the same account without conflicting order/state management. The default runtime is paper mode for validation; wiring to live endpoints can be layered on later.
 
-## Phase 1 Deliverables (current)
-- ✅ Configurable YAML + `.env` secrets loader (`config/bot.yaml`, `BINANCE_API_KEY/SECRET`).
-- ✅ Binance data feed (1h candles, 300-bar window) feeding EMA/RSI/volume features.
-- ✅ Conservative trend strategy (EMA 50/200 trend filter, RSI 14 band, 20-period volume spike confirmation).
-- ✅ Risk manager enforcing:
-  - 5–15 % dynamic position sizing (strength-weighted).
-  - 1.5–3 % stop band (default 2 %).
-  - ≥1:1.5 risk-reward TP (default 1.6× stop distance).
-  - One position at a time + daily loss cap (default −3 %).
-- ✅ Paper-trading executor with persistent state, trade blotter, and structured CSV logs.
+## Key Capabilities
+- ✅ Typed YAML configs per bot (`config/<bot>.yaml`) with isolated logs/state paths.
+- ✅ Strategy factory supporting:
+  - **Trend Bot (long only)** – EMA50/EMA200 + RSI filter.
+  - **Short Bot (short only, 3× futures leverage)** – EMA50/EMA200 bearish confirmation + volatility guard.
+  - **Scalper Bot (bi-directional)** – EMA9/EMA21 crossovers inside RSI band for low-volatility chops.
+- ✅ Unified risk manager that understands margin, leverage, isolated/cross mode, and direction-specific stops/take-profit targets.
+- ✅ Paper execution engine with per-bot CSV trade blotters, JSON state, and signal logs (features captured as JSON for easy downstream analysis).
+- ✅ Multi-bot runner (`scripts/run_bots.py`) to spin up any number of configs concurrently in separate threads.
 
 ## Repo Layout
 ```
 src/
-  config/         # YAML loader + typed settings
-  data/           # Binance klines wrapper
-  strategy/       # EMA/RSI/volume signal logic
-  risk/           # Risk guardrails + position planning
-  execution/
-    state.py      # Account state persistence
-    paper.py      # Paper trading loop
+  config/          # Settings models + loader
+  data/            # Binance klines wrapper
+  execution/       # Paper executor + state persistence
+  indicators/      # EMA/RSI helpers
+  risk/            # Position sizing + guardrails
+  strategy/        # Trend + scalper strategies + factory
 scripts/
-  paper_trade.py  # CLI entrypoint (one-shot or loop)
+  paper_trade.py   # Run a single bot (one-shot or loop)
+  run_bots.py      # Run multiple configs in parallel
 config/
-  bot.yaml        # Active configuration (copy from bot.example.yaml)
+  bot.example.yaml # Template
+  trend_bot.yaml   # LONG trend profile
+  short_bot.yaml   # SHORT futures profile
+  scalper_bot.yaml # Fast crossover profile
 ```
 
 ## Getting Started
-1. **Python environment**
+1. **Environment**
    ```bash
    cd binance_trading_bot
-   python -m venv .venv && source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+   python -m venv .venv && source .venv/bin/activate   # on Windows: .venv\Scripts\activate
    pip install -r requirements.txt
    ```
-2. **Config & secrets**
-   - Copy `config/bot.example.yaml` → `config/bot.yaml` (already provided) and edit if needed.
-   - Create `.env` (from `.env.example`) with `BINANCE_API_KEY` / `BINANCE_API_SECRET` (read-only keys are fine for data; trading keys required later).
-3. **Run paper mode (single evaluation)**
+2. **Secrets**
+   - Copy `.env.example` → `.env` and add `BINANCE_API_KEY` / `BINANCE_API_SECRET` (read-only ok for paper mode).
+3. **Choose configs**
+   - Use the provided `config/*_bot.yaml` files or copy `config/bot.example.yaml` to create new profiles.
+   - Each config defines: `app` metadata, strategy type, leverage/margin settings, and dedicated log/state paths.
+4. **Run a single bot**
    ```bash
-   python scripts/paper_trade.py --config config/bot.yaml
+   python scripts/paper_trade.py --config config/trend_bot.yaml --loop
    ```
-4. **Continuous loop (dry-run only)**
+5. **Run three bots together**
    ```bash
-   python scripts/paper_trade.py --loop
+   python scripts/run_bots.py --configs \
+       config/trend_bot.yaml \
+       config/short_bot.yaml \
+       config/scalper_bot.yaml
    ```
-   The loop sleeps for `app.poll_interval_sec` (default 300 s) between cycles.
+   Each bot reports with its own `[bot-name]` prefix and writes to its isolated CSV/JSON files.
 
-Outputs land in `data/paper_trades.csv` (entry/exit events) and `data/paper_blotter.csv` (cycle metrics). State (balance, open position) persists in `data/state/paper_state.json` so stopping/starting retains context.
+Outputs per bot:
+- `logs/<bot>/trades.csv` – entry/exit tape with PnL, side, duration.
+- `logs/<bot>/signals.csv` – strategy decisions + JSON-encoded feature snapshot.
+- `logs/<bot>/blotter.csv` – cycle-level telemetry.
+- `data/state/<bot>.json` – persistent account state (balance, open position).
 
 ## Next Steps
-- Wire up backtest harness to reuse the new strategy/risk modules.
-- Add alerting (Telegram/email) on fills or rule breaches.
-- Introduce live execution adapter once paper logs show stability.
-- Expand to ETH/USDT after BTC flow is proven.
+- Backtest harness that reuses the strategy/risk stack for offline validation.
+- Alerting hooks (Telegram/email) for fills and guard-rails.
+- Live execution adapters for Binance Spot + Futures using the same config schema.
+- Additional symbols/portfolios once BTCUSDT flows are verified.
 
-All live-trading code paths remain disabled until explicitly enabled in configuration.
+> **Safety note:** Live trading is disabled by default. Keep paper mode on until you review logs, validate risk, and wire real executors.

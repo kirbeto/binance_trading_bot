@@ -10,6 +10,7 @@ import pandas as pd
 
 class StrategyAction(str, Enum):
     ENTER_LONG = "ENTER_LONG"
+    ENTER_SHORT = "ENTER_SHORT"
     EXIT = "EXIT"
     HOLD = "HOLD"
 

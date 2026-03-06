@@ -1,40 +1,51 @@
+# Default to the long trend bot. Point --config to another file for different profiles.
 app:
-  mode: live
-  poll_interval_sec: 120
+  name: trend_bot
+  mode: paper
+  poll_interval_sec: 300
   symbol: BTCUSDT
-  interval: 5m
+  interval: 15m
+
+execution:
+  market: spot
+  margin_mode: cross
+  leverage: 1
+  trade_side: long
 
 strategy:
+  type: trend_long
   ema_fast: 50
   ema_slow: 200
   rsi_period: 14
-  rsi_entry_min: 35
-  rsi_entry_max: 65
-  rsi_exit: 70
+  rsi_entry_min: 50
+  rsi_entry_max: 70
+  rsi_exit: 48
   volume_sma_period: 20
   volume_multiplier: 0.5
   volume_filter_enabled: false
+  history_bars: 400
 
 risk:
-  starting_capital: 70
-  position_pct_min: 0.25
+  starting_capital: 2000
+  position_pct_min: 0.20
   position_pct_max: 0.30
-  stop_loss_pct: 0.015
+  stop_loss_pct: 0.01
+  take_profit_pct: 0.015
   take_profit_rr: 1.5
   daily_loss_cap_pct: 0.03
-  max_open_positions: 2
+  max_open_positions: 1
 
 logging:
-  trade_log: data/paper_trades.csv
-  blotter_log: data/paper_blotter.csv
-  state_file: data/state/paper_state.json
-  signal_log: data/logs/signal_evals.csv
-  live_trade_log: logs/live/trades.csv
-  live_execution_log: logs/live/orders.jsonl
-  live_signal_log: logs/live/signals.csv
-  live_state_file: data/state/live_state.json
+  trade_log: logs/trend/trades.csv
+  blotter_log: logs/trend/blotter.csv
+  state_file: data/state/trend_state.json
+  signal_log: logs/trend/signals.csv
+  live_trade_log: logs/trend/live/trades.csv
+  live_execution_log: logs/trend/live/orders.jsonl
+  live_signal_log: logs/trend/live/signals.csv
+  live_state_file: data/state/trend_live_state.json
 
 live:
-  min_balance: 50
-  min_notional: 12
+  min_balance: 100
+  min_notional: 10
   fee_bps: 10

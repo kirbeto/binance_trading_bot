@@ -3,22 +3,26 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from ..config.settings import RiskSettings
+from ..config.settings import ExecutionSettings, LiveSettings, RiskSettings
 from ..execution.state import AccountState, Position
 
 
 @dataclass
 class PositionPlan:
     size: float
-    cost: float
+    margin: float
+    notional: float
     stop_loss: float
     take_profit: float
+    side: str
     reason: str
 
 
 class RiskManager:
-    def __init__(self, settings: RiskSettings):
+    def __init__(self, settings: RiskSettings, execution: ExecutionSettings, live: LiveSettings):
         self.settings = settings
+        self.execution = execution
+        self.live = live
 
     def refresh_daily_cap(self, state: AccountState) -> None:
         last_reset = datetime.fromisoformat(state.daily_reset_at)
@@ -36,47 +40,63 @@ class RiskManager:
             return False
         if self.daily_cap_breached(state):
             return False
-        if state.balance <= 5:  # Binance minimum notional guard
+        if state.balance <= self.live.min_notional:
             return False
         return True
 
     def describe_allocation(self, strength: float, state: AccountState) -> dict:
         pct = self._position_pct(strength)
+        margin = state.balance * pct
+        notional = margin * self.execution.leverage
         return {
             "allocation_pct": pct,
-            "projected_notional": state.balance * pct,
+            "projected_margin": margin,
+            "projected_notional": notional,
             "balance": state.balance,
         }
 
-    def plan_position(self, price: float, strength: float, state: AccountState) -> PositionPlan | None:
+    def plan_position(self, price: float, strength: float, state: AccountState, side: str) -> PositionPlan | None:
         pct = self._position_pct(strength)
-        notional = state.balance * pct
-        if notional <= 5 or notional > state.balance:
+        margin = state.balance * pct
+        if margin <= 0 or margin > state.balance:
+            return None
+
+        leverage = self.execution.leverage if side == "SHORT" or self.execution.trade_side != "long" else 1.0
+        notional = margin * leverage
+        if notional < self.live.min_notional:
             return None
 
         qty = round(notional / price, 6)
         if qty <= 0:
             return None
 
-        stop_loss = price * (1 - self.settings.stop_loss_pct)
-        take_profit = price * (1 + self.settings.stop_loss_pct * self.settings.take_profit_rr)
+        stop_loss = price * (1 - self.settings.stop_loss_pct) if side == "LONG" else price * (1 + self.settings.stop_loss_pct)
+        tp_pct = self.settings.take_profit_pct or (self.settings.stop_loss_pct * self.settings.take_profit_rr)
+        take_profit = price * (1 + tp_pct) if side == "LONG" else price * (1 - tp_pct)
         return PositionPlan(
             size=qty,
-            cost=qty * price,
+            margin=margin,
+            notional=qty * price,
             stop_loss=stop_loss,
             take_profit=take_profit,
+            side=side,
             reason=f"risk_pct={pct:.2%}",
         )
 
     def open_position(self, symbol: str, plan: PositionPlan, state: AccountState) -> Position:
-        state.balance -= plan.cost
+        state.balance -= plan.margin
         position = Position(
             symbol=symbol,
-            entry_price=plan.cost / plan.size,
+            entry_price=plan.notional / plan.size,
             quantity=plan.size,
             stop_loss=plan.stop_loss,
             take_profit=plan.take_profit,
             opened_at=datetime.now(timezone.utc).isoformat(),
+            side=plan.side,
+            leverage=self.execution.leverage if plan.side == "SHORT" else 1.0,
+            margin_mode=self.execution.margin_mode,
+            margin_used=plan.margin,
+            notional=plan.notional,
         )
         state.open_position = position
         return position
@@ -86,11 +106,16 @@ class RiskManager:
         if not position:
             return {"status": "noop"}
 
-        proceeds = position.quantity * price
-        entry_cost = position.quantity * position.entry_price
+        notional_entry = position.quantity * position.entry_price
+        notional_exit = position.quantity * price
         total_fees = fees + getattr(position, "fees_paid", 0.0)
-        pnl = proceeds - entry_cost - total_fees
-        state.balance += proceeds
+
+        if position.side == "LONG":
+            pnl = notional_exit - notional_entry - total_fees
+        else:
+            pnl = notional_entry - notional_exit - total_fees
+
+        state.balance += position.margin_used + pnl
         state.realized_pnl += pnl
         state.daily_realized_pnl += pnl
         state.open_position = None
@@ -98,7 +123,7 @@ class RiskManager:
             "status": "closed",
             "pnl": pnl,
             "reason": reason,
-            "proceeds": proceeds,
+            "proceeds": notional_exit,
             "fees": total_fees,
         }
 
