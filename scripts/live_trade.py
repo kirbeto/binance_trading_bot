@@ -22,7 +22,7 @@ from src.data.binance_feed import BinanceDataFeed
 from src.execution.live import LiveTrader
 from src.execution.state import AccountStateStore
 from src.risk.manager import RiskManager
-from src.strategy.trend import ConservativeTrendStrategy
+from src.strategy import ConservativeTrendStrategy, build_strategy
 
 
 def parse_args() -> argparse.Namespace:
@@ -60,8 +60,11 @@ def main() -> None:
         raise SystemExit("BINANCE_API_KEY/SECRET required for live trading.")
 
     feed = BinanceDataFeed(api_key, api_secret)
-    strategy = ConservativeTrendStrategy(settings.strategy)
-    risk = RiskManager(settings.risk)
+    if settings.strategy.type == "trend_long":
+        strategy = ConservativeTrendStrategy(settings.strategy)
+    else:
+        strategy = build_strategy(settings.strategy)
+    risk = RiskManager(settings.risk, settings.execution, settings.live)
     store = AccountStateStore(settings.logging.live_state_file, settings.risk.starting_capital)
     trader = LiveTrader(settings, feed, strategy, risk, store, feed.client, dry_run=args.dry_run, console=console)
 

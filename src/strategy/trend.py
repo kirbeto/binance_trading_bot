@@ -188,3 +188,82 @@ class TrendShortStrategy(BaseStrategy):
         rsi_range = max(2, self.settings.rsi_entry_max - self.settings.rsi_entry_min)
         rsi_score = 1 - min(1.0, abs(latest["rsi"] - rsi_mid) / rsi_range)
         return round(max(0.0, (ema_score + rsi_score) / 2), 3)
+
+class ConservativeTrendStrategy(TrendLongStrategy):
+    """Trend-long variant with stricter entry confirmation and optional filter relax."""
+
+    def __init__(self, settings: StrategySettings):
+        super().__init__(settings)
+        self._volume_relax_after = max(3, settings.volume_sma_period // 4)
+        self._missed_volume_streak = 0
+        self._min_strength = 0.55
+
+    def evaluate(self, df: pd.DataFrame, state=None) -> StrategyDecision:
+        enriched = self._prepare(df)
+        if enriched is None:
+            return StrategyDecision(
+                action=StrategyAction.HOLD,
+                reason="Insufficient history",
+                strength=0.0,
+                features={},
+            )
+
+        latest = enriched.iloc[-1]
+        base_features = self._build_features(enriched)
+        trend_up = latest["ema_fast"] > latest["ema_slow"]
+        price_above_slow = latest["close"] >= latest["ema_slow"]
+        rsi_in_band = self.settings.rsi_entry_min <= latest["rsi"] <= self.settings.rsi_entry_max
+        volume_ok = base_features["volume_ok"]
+        filters_relaxed = False
+
+        if not volume_ok and self.settings.volume_filter_enabled:
+            self._missed_volume_streak += 1
+            if self._missed_volume_streak >= self._volume_relax_after:
+                filters_relaxed = True
+                volume_ok = True
+        else:
+            self._missed_volume_streak = 0
+
+        features = {
+            **base_features,
+            "trend_up": bool(trend_up),
+            "rsi_in_band": bool(rsi_in_band),
+            "price_above_slow": bool(price_above_slow),
+            "filters_relaxed": bool(filters_relaxed),
+        }
+
+        in_position = bool(getattr(state, "open_position", None))
+        if not in_position:
+            if trend_up and rsi_in_band and price_above_slow and volume_ok:
+                strength = self._strength(latest, long_bias=True)
+                if strength >= self._min_strength:
+                    return StrategyDecision(
+                        action=StrategyAction.ENTER_LONG,
+                        reason="Conservative trend alignment",
+                        strength=strength,
+                        features=features,
+                    )
+            return StrategyDecision(
+                action=StrategyAction.HOLD,
+                reason="Waiting for conservative confirmation",
+                strength=self._strength(latest, long_bias=True),
+                features=features,
+            )
+
+        exit_rsi = latest["rsi"] <= self.settings.rsi_exit
+        exit_trend = latest["ema_fast"] <= latest["ema_slow"]
+
+        if exit_rsi or exit_trend:
+            return StrategyDecision(
+                action=StrategyAction.EXIT,
+                reason="Conservative exit triggered",
+                strength=1.0,
+                features=features,
+            )
+
+        return StrategyDecision(
+            action=StrategyAction.HOLD,
+            reason="Managing live long",
+            strength=self._strength(latest, long_bias=True),
+            features=features,
+        )
